@@ -19,6 +19,8 @@ ggplot(res, aes(Yhat, e)) +
   geom_smooth(method = "lm") +
   geom_smooth(method = "loess", se = FALSE, colour = "orange")
 
+# Residuals
+
 e <- resid(prof_data_regression); Yhat <- fitted(prof_data_regression)
 res <- data.frame(Yhat = Yhat, e = e)
 
