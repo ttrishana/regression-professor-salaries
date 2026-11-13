@@ -393,19 +393,31 @@ obtaining a PhD, years of service), and discipline
 </div>
 <div id="analysis-of-the-data" class="section level2">
 <h2>Analysis of the Data</h2>
+<p>From our first model, we can see that men earn an estimated $4,800
+more than women with other factors held constant, but the difference is
+not statistically significant (t = 1.24, p = 0.22). After accounting for
+rank, experience and discipline, the data show no significant salary
+difference between men and women. However, the standard error is $3,859
+which is nearly as large as the estimate, so the gap is estimated
+imprecisely, and a real difference cannot be ruled out.</p>
+<p>As for the residual analysis, there are some concerns. The residuals
+vs fitted plot shows no clear curvature, so Linearity (L) holds.
+According to our plots the spread looks like it grows from about
+±$15,000 for assistant professors to ±$50,000 for full professors, so
+constant variance (E) is in doubt. The normal QQ plot follows the line
+in the centre, but its upper tail has a right skew, and the largest
+residual is about $100,000. Since he residuals are right-skewed,
+normality (N) is also in doubt.</p>
 <div id="relationship-between-salary-usd-and-sex" class="section level3">
 <h3>Relationship between Salary (USD) and Sex</h3>
-<p>Does salary change based on sex of the professor? Based on the
-statistic of salary difference based on sex, we can see that male
-professors have a higher average salary compared with female professors.
-The unadjusted difference is ~$14088. The median salary difference is
-~$4293. Based on the standard deviation, we note that male professors
-have greater salary variability than female professors. An important
-note is that female professors only account for 9.8% of the total
-observations, while the remaining 90.2% are all male professors. This
-suggests that there is an initial difference in salary distributions
-between men and women. However, the data does not account for
-differences in academic rank, experience or discipline.</p>
+<p>Based on the statistic of salary difference based on sex, we can see
+that male professors have a higher average salary compared with female
+professors. Based on the standard deviation, we note that male
+professors have greater salary variability than female professors. An
+important note is that female professors only account for 9.8% of the
+total observations, while the remaining 90.2% are all male professors.
+This suggests that there is an difference in salary distributions
+between men and women.</p>
 </div>
 </div>
 <div id="potential-data-issues" class="section level2">
