@@ -18,6 +18,15 @@ ggplot(res, aes(Yhat, e)) +
   geom_point(size = 0.9) +
   geom_smooth(method = "lm") +
   geom_smooth(method = "loess", se = FALSE, colour = "orange")
+
+e <- resid(prof_data_regression); Yhat <- fitted(prof_data_regression)
+res <- data.frame(Yhat = Yhat, e = e)
+
+ggplot(res, aes(sample = e)) +
+  stat_qq(size = 1, colour = "grey30") +
+  stat_qq_line(colour = "orange") +
+  labs(x = "Normal quantile", y = "Residual") +
+  theme_minimal()
 ```
 
 ## Analysis of the Data
