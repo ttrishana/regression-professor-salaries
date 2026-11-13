@@ -32,6 +32,11 @@ ggplot(res, aes(sample = e)) +
 ```
 
 ## Analysis of the Data
+We regressed salary onto sex, rank, discipline, years since earning PhD and years of service with a total population of n=397. The coefficient of interest is sexMale: the estimated salary difference between men and women of the same rank, experience and discipline. 
+
+From our first model, we can see that men earn an estimated $4,800 more than comparable women, but the difference is not statistically significant (t = 1.24, p = 0.22). After accounting for rank, experience and discipline, the data show no significant salary difference between men and women. However, the standard error is $3,859 which is nearly as large as the estimate, so the gap is estimated imprecisely, and a real difference cannot be ruled out. This will be explored in our final report.
+
+As for the residual analysis, there are some concerns. The residuals vs fitted plot shows no clear curvature, so Linearity (L) holds. According to our plots the spread looks like it grows from about ±$15,000 for assistant professors to ±$50,000 for full professors, so constant variance (E) is in doubt. The normal QQ plot follows the line in the centre, but its upper tail has a right skew, and the largest residual is about $100,000. The residuals are right-skewed, so normality (N) is in doubt. Because the standard errors depend on these assumptions, the p-value of 0.216 for sex should be read as provisional.
 
 ### Relationship between Salary (USD) and Sex
 Does salary change based on sex of the professor?
