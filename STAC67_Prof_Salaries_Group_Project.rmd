@@ -1,24 +1,40 @@
 ---
-title: "STAC67 Prof Salaries Group Project"
+title: "C67 Report"
 output: html_document
 ---
-```{r pressure, echo=FALSE}
-install.packages("lintr")
-install.packages("ggplot2")
-```
+## Question
+Are there significant differences in professors' salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?
 
 ```{r pressure, echo=FALSE}
-
+library(ggplot2)
 prof_data <- read.csv("professors_salaries.csv")
-prof_data
 
 prof_data_regression <- lm(salary ~ sex + rank + discipline + yrs.since.phd + yrs.service, data = prof_data)
 summary(prof_data_regression)
 
-# Graph Portion
+# Graph Portion 
 res <- data.frame(Yhat = fitted(prof_data_regression), e = resid(prof_data_regression))
 ggplot(res, aes(Yhat, e)) +
   geom_point(size = 0.9) +
   geom_smooth(method = "lm") +
   geom_smooth(method = "loess", se = FALSE, colour = "orange")
 ```
+
+## Analysis of the Data
+
+### Relationship between Salary (USD) and Sex
+Does salary change based on sex of the professor?
+Based on the statistic of salary difference based on sex, we can see that male professors have a higher average salary compared with female professors. The unadjusted difference is ~$14088. The median salary difference is ~$4293. Based on the standard deviation, we note that male professors have greater salary variability than female professors. An important note is that female professors only account for 9.8% of the total observations, while the remaining 90.2% are all male professors. This suggests that there is an initial difference in salary distributions between men and women. However, the data does not account for differences in academic rank, experience or discipline. We will investigate the differences using a multiple regression model.
+
+## Potential Data Issues
+
+### Unequal group size
+The large differences within the group sizes may be affected due to significant differences between male and female professors. Out of the 397 total professors, there are 358 males and 39 females. Since there are significantly less female professors, the salary comparison can be less precise.
+
+### Multicollinearity
+This may also have a role since some professors have higher years since they obtained a PhD and higher years of service. Those two predictors may create multicollinearity since both predictors give similar information about professors’ experience (correlation of 0.91 = strong positive linear relationship).
+
+### Potential outliers
+This may affect the overall regression results due to unusually high or low salaries. Within the 397 salaries, we found three unusually high salaries, $204000, $205500 and $231545, so we need to investigate whether these observations would influence the final regression.
+
+### Unusual observations 
