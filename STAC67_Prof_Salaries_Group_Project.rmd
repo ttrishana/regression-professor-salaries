@@ -49,3 +49,4 @@ This may also have a role since some professors have higher years since they obt
 This may affect the overall regression results due to unusually high or low salaries. Within the 397 salaries, we found three unusually high salaries, $204000, $205500 and $231545, so we need to investigate whether these observations would influence the final regression.
 
 ### Unusual observations 
+We observe considerable variability, as the data points are widely spread around the regression line. We also observe a trumpet-shaped pattern, suggesting that the variance of the residuals may not be constant.
