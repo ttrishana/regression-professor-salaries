@@ -5,6 +5,7 @@ output: html_document
 ## Question
 Are there significant differences in professors' salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?
 
+## Multilinear regression and its residuals
 ```{r pressure, echo=FALSE}
 library(ggplot2)
 prof_data <- read.csv("professors_salaries.csv")
