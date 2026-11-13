@@ -2,11 +2,11 @@
 title: "C67 Report"
 output: html_document
 ---
-## Question
+### Question
 Are there significant differences in professors' salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?
 
-## Multilinear regression and its residuals
-```{r pressure, echo=FALSE}
+### Multilinear regression and its residuals
+```{r pressure, echo=FALSE, out.width="50%"}
 library(ggplot2)
 prof_data <- read.csv("professors_salaries.csv")
 
@@ -14,16 +14,16 @@ prof_data_regression <- lm(salary ~ sex + rank + discipline + yrs.since.phd + yr
 summary(prof_data_regression)
 
 # Graph Portion 
-res <- data.frame(Yhat = fitted(prof_data_regression), e = resid(prof_data_regression))
-ggplot(res, aes(Yhat, e)) +
+res <- data.frame(Y_hat = fitted(prof_data_regression), e = resid(prof_data_regression))
+ggplot(res, aes(Y_hat, e)) +
   geom_point(size = 0.9) +
   geom_smooth(method = "lm") +
   geom_smooth(method = "loess", se = FALSE, colour = "orange")
 
 # Residuals
 
-e <- resid(prof_data_regression); Yhat <- fitted(prof_data_regression)
-res <- data.frame(Yhat = Yhat, e = e)
+e <- resid(prof_data_regression); Y_hat <- fitted(prof_data_regression)
+res <- data.frame(Y_hat = Y_hat, e = e)
 
 ggplot(res, aes(sample = e)) +
   stat_qq(size = 1, colour = "grey30") +
@@ -32,24 +32,36 @@ ggplot(res, aes(sample = e)) +
   theme_minimal()
 ```
 
-## Analysis of the Data
+### Analysis of the Data
 From our first model, we can see that men earn an estimated $4,800 more than women with other factors held constant, but the difference is not statistically significant (t = 1.24, p = 0.22). After accounting for rank, experience and discipline, the data show no significant salary difference between men and women. However, the standard error is $3,859 which is nearly as large as the estimate, so the gap is estimated imprecisely, and a real difference cannot be ruled out.
 
-As for the residual analysis, there are some concerns. The residuals vs fitted plot shows no clear curvature, so Linearity (L) holds. According to our plots the spread looks like it grows from about ±$15,000 for assistant professors to ±$50,000 for full professors, so constant variance (E) is in doubt. The normal QQ plot follows the line in the centre, but its upper tail has a right skew, and the largest residual is about $100,000. Since he residuals are right-skewed, normality (N) is also in doubt. 
+As for the residual analysis, there are some concerns. The residuals vs fitted plot shows no clear curvature, so Linearity (L) holds. According to our plots the spread looks like it grows from about ±$15,000 for assistant professors to ±$50,000 for full professors, so constant variance (E) is in doubt. The normal QQ plot follows the line in the centre, but its upper tail has a right skew, and the largest residual is about $100,000. Since the residuals are right-skewed, normality (N) is also in doubt. 
 
-### Relationship between Salary (USD) and Sex
-Based on the statistic of salary difference based on sex, we can see that male professors have a higher average salary compared with female professors. Based on the standard deviation, we note that male professors have greater salary variability than female professors. An important note is that female professors only account for 9.8% of the total observations, while the remaining 90.2% are all male professors. This suggests that there is an difference in salary distributions between men and women.
+#### Relationship between Salary (USD) and The Predicators
+**Professor Gender:** Based on the statistic of salary difference based on sex, we can see that male professors have a higher average salary compared with female professors. Based on the standard deviation, we note that male professors have greater salary variability than female professors. An important note is that female professors only account for 9.8% of the total observations, while the remaining 90.2% are all male professors. This suggests that there is an difference in salary distributions between men and women (R^2 = 0.4547).
 
-## Potential Data Issues
+**Academic Rank:** Does salary differ between assistant, associate, and full professors?
+We find that full professors have considerably higher average salaries than assistant and associate professors, which shows that academic rank is an important predictor of professors’ salary. Notably, of the 266 full professors, 248 (93.2%) are male, while only 18 (6.8%) are female. Thus, the difference in academic rank distribution may help explain the initial salary gap between men and women. Therefore, we must carefully control for academic rank in regression
 
-### Unequal group size
+**Years since obtaining a PhD:** Does salary increase with years since obtaining a PhD?
+We find that the correlation between salary and years since obtaining a PhD is ~0.42 suggesting a positive linear relationship which implies that professors with more years since PhD tend to have higher salaries. We will further analyze by creating a scatterplot of salary VS years since PhD.
+
+**Years of service:** Does salary increase with years of service/experience?
+We find that the correlation between salary and years of service is ~0.33 suggesting a positive relationship which implies that professors with more years of service tend to have higher salaries, however this relationship is weaker than the relation with years since PhD. We will further analyze by creating a scatterplot of salary VS years of service.
+Academic Discipline: Does salary differ between theoretical and applied departments?
+Based on this comparison, we can see that professors in applied departments have higher average salaries than those in theoretical departments, suggesting that discipline may be associated with salary and thus should be included as a predictor.
+
+
+### Potential Data Issues
+
+#### Unequal group size
 The large differences within the group sizes may be affected due to significant differences between male and female professors. Out of the 397 total professors, there are 358 males and 39 females. Since there are significantly less female professors, the salary comparison can be less precise.
 
-### Multicollinearity
+#### Multicollinearity
 Multicollinearity may also have a role since some professors have higher years since they obtained a PhD and higher years of service. Those two predictors may create multicollinearity since both predictors give similar information about professors’ experience (correlation of 0.91 = strong positive linear relationship).
 
-### Potential outliers
-This may affect the overall regression results due to unusually high or low salaries. Within the 397 salaries, we found three unusually high salaries, $204000, $205500 and $231545, so we need to investigate whether these observations would influence the final regression.
+#### Potential outliers
+This may affect the overall regression results due to unusually high or low salaries. Within the 397 salaries, we found three unusually high salaries, $204,000, $205,500 and $231,545, so we need to investigate whether these observations would influence the final regression.
 
-### Unusual observations 
-We observe considerable variability, as the data points are widely spread around the regression line. We also observe a trumpet-shaped pattern, suggesting that the variance of the residuals may not be constant.
+#### Unusual observations 
+We observe considerable variability, as the data points are widely spread around the regression line. We also observe a trumpet-shaped pattern (trend), suggesting that the variance of the residuals may not be constant.
