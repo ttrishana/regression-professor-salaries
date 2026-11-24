@@ -65,3 +65,303 @@ This may affect the overall regression results due to unusually high or low sala
 
 #### Unusual observations 
 We observe considerable variability, as the data points are widely spread around the regression line. We also observe a trumpet-shaped pattern (trend), suggesting that the variance of the residuals may not be constant.
+
+
+# Setup
+
+```{r data}
+library(ggplot2)
+sal <- read.csv("professors_salaries.csv")
+# [L15/16] on qualitative predictors, convert qualitative variables to factors!
+sal$rank       <- factor(sal$rank, levels = c("AsstProf", "AssocProf", "Prof"))
+sal$sex        <- factor(sal$sex, levels = c("Male", "Female"))
+sal$discipline <- factor(sal$discipline)                    # A is the baseline
+# [L17/L18] centred variables for years of service/years since phd (will be used for polynomial regression later)
+sal$phd.c  <- sal$yrs.since.phd - mean(sal$yrs.since.phd)   # centred, mean = 22.31
+sal$serv.c <- sal$yrs.service - mean(sal$yrs.service)       # centred, mean = 17.61
+n <- nrow(sal)
+```
+
+# 3. Model
+
+## 3.1 Starting model
+
+```{r m0}
+#fitting all 5 predictors to the response variable salary
+m0 <- lm(salary ~ yrs.since.phd + yrs.service + sex + rank + discipline, data = sal)
+summary(m0)
+```
+### Observations after 3.1
+
+**Fit**: At least one predictor must be useful according to the F test (F = 54.2 on 6 and 390 df, p < 0.001). Additionally, the model explains only 45% of the variation in salary (R² = 0.455), with a large typical error (Residual Standard Error = $22,540).
+**Main drivers**: Rank matters most (Prof +\$45,066 vs AsstProf), then discipline (applied +\$14,418). Experience doesn't add much on its own.
+**Sex**: the gap falls from -\$14,088 unadjusted to -$4,784 after adjustment (p = 0.22). Most of the raw gap reflects women being concentrated in lower ranks, but we can't conclude anything until the assumptions are checked.
+**Collinearity warning**: yrs.service has a negative slope (-$490) despite a positive correlation with salary, and the two experience slopes nearly cancel. Correlated predictors make coefficients unstable and can flip their signs, alluding to collinearity with yrs.since.phd (r = 0.91).
+**Assumption warning**: the residuals are right-skewed (max +\$99,592 vs min -\$65,248, median below 0).
+
+## 3.2 Transforming the response
+
+### Diagnostics of the starting model (residual plots and Shapiro-Wilk Test):
+
+```{r m0-diagnostics}
+# draw the standard residual plots and run the shapiro test
+library(ggplot2)
+d0 <- data.frame(fitted = fitted(m0), resid = resid(m0), case = 1:n)
+d0$label <- paste0("$", format(sal$salary[d0$case], big.mark = ","))
+ggplot(d0, aes(x = fitted, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_text(data = subset(d0, case %in% c(44, 365, 250)), aes(label = label), hjust = -0.15) +  # the three largest residuals
+  labs(title = "Residuals vs fitted values (m0)", x = "Fitted salary ($)", y = "Residual ($)")
+ggplot(d0, aes(sample = resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Normal Q-Q plot of the residuals (m0)", x = "Theoretical quantiles", y = "Residual ($)")
+shapiro.test(resid(m0))
+```
+
+### Brown-Forsythe test (split on the fitted values):
+
+```{r m0-bf}
+# test for constant variance using the Brown-Forsythe test
+# split the residuals into two groups based on whether the fitted value is above or below the median
+# then compute the absolute deviations from the median of each group and run a two-sample t-test
+e <- resid(m0)
+grp <- fitted(m0) > median(fitted(m0))
+d1 <- abs(e[grp] - median(e[grp]))
+d2 <- abs(e[!grp] - median(e[!grp]))
+t.test(d1, d2, var.equal = TRUE)
+```
+
+**Residuals vs fitted**: Based on the salary ranges for each rank, the points seem to fall into clusters by rank. Assistant and associate professors have fitted values of about \$70–105k, and full professors about \$115–145k. The red line is flat, so *linearity* looks fine. The spread is much wider in the full-professor cluster (roughly ±\$60k, against ±\$20k for juniors), which is a funnel shape and questions *equal variance* (E).
+**Normal Q–Q**: the middle follows the line, but the upper tail bends above it. The three largest residuals, labelled with their salaries in the residuals vs fitted plot, are the three high salaries from [D1] (\$231,545, \$205,500 and \$204,000), all full professors. Residuals are right-skewed, so *normality* (N) is questioned.
+**Shapiro–Wilk**: W = 0.969, p = 1.6×10⁻⁷. Reject normality.
+**Brown–Forsythe**: the high-fitted group's mean absolute deviation is \$21,983, against \$10,869 for the low-fitted group, about twice as large. With t = 7.65 on 395 df and p = 1.6×10⁻¹³, reject *equal variance*. 
+
+**Conclusion**: the linearity assumption holds, but normality and equal variance fail. The pattern is right skew with spread growing as salary rises, which is a sign that the response needs a transformation. That justifies a Box-Cox step next. 
+
+Box-Cox (read lambda-hat and its 95% CI off the plot):
+
+```{r boxcox}
+library(MASS)
+boxcox(m0)
+```
+The Box-Cox plot shows that the 95% CI for lambda is roughly (-1.1, -0.5), which does not include 0 (log/ln) or 1 (no transformation), but does contain -1 (reciprocal). Because the skew and growing spread are the pattern for which ln Y is recommended, and because log coefficients give the sex effect as a percentage difference, we will compare ln Y with the reciprocal (λ = -1, inside the CI). 
+
+Comparing log(salary) and 1/salary:
+
+```{r compare-transformations}
+
+# refit transformed models and redo shapiro-wilk test
+m1 <- lm(log(salary) ~ yrs.since.phd + yrs.service + sex + rank + discipline, data = sal)
+mr <- lm(I(1/salary) ~ yrs.since.phd + yrs.service + sex + rank + discipline, data = sal)
+shapiro.test(resid(m1)); shapiro.test(resid(mr))
+
+# Redo brown-forsythe test for both transformations
+e <- resid(m1); grp <- fitted(m1) > median(fitted(m1))
+d1 <- abs(e[grp] - median(e[grp]))
+d2 <- abs(e[!grp] - median(e[!grp]))
+t.test(d1, d2, var.equal = TRUE)
+
+e <- resid(mr); grp <- fitted(mr) > median(fitted(mr))
+d1 <- abs(e[grp] - median(e[grp]))
+d2 <- abs(e[!grp] - median(e[!grp]))
+t.test(d1, d2, var.equal = TRUE)
+
+# compare the residual SDs by rank for the three models
+tapply(resid(m0), sal$rank, sd); tapply(resid(m1), sal$rank, sd); tapply(resid(mr), sal$rank, sd)
+```
+
+```{r m1}
+summary(m1)
+```
+
+| | No transformation (m0) | log(salary) (m1) | 1/salary (mr) |
+| :--- | :---: | ---: | ---: |
+| Shapiro–Wilk p | 1.6×10⁻⁷ | 0.022 | 1.8×10⁻⁵ |
+| Brown–Forsythe p | 1.6×10⁻¹³ | 3.3×10⁻⁶ | 0.10 |
+| Residual SD, Prof ÷ AsstProf | 3.76 | 2.56 | 1.72 |
+
+We compared log(salary) with 1/salary, the reciprocal that lies inside the interval. The log gave clearly more normal residuals (Shapiro–Wilk p = 0.022 vs 1.8×10⁻⁵), and its coefficients read as percentage differences. The reciprocal gave more constant variance (Brown–Forsythe p = 0.10 vs 3.3×10⁻⁶).
+
+So, we adopt log(salary). It corrects the skew and makes the residuals roughly symmetric, but equal variance is still violated, mainly because full professors' salaries vary more than other ranks'. We choose log over the reciprocal because it gives more normal residuals, interpretable coefficients, is typical for salaries, and has been discussed more in lecture.
+
+## 3.3 Polynomial terms
+
+```{r curvature-plots, fig.height = 4}
+d1 <- data.frame(phd = sal$yrs.since.phd, serv = sal$yrs.service, resid = resid(m1))
+ggplot(d1, aes(x = phd, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Residuals of the log model vs years since PhD", x = "Years since PhD", y = "Residual (log salary)")
+ggplot(d1, aes(x = serv, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Residuals of the log model vs years of service", x = "Years of service", y = "Residual (log salary)")
+```
+
+
+```{r polynomial-tests}
+m2 <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline, data = sal)
+anova(m1, m2)                                                     # phd^2
+m2s <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + I(serv.c^2) + sex + rank + discipline, data = sal)
+anova(m2, m2s)                                                    # service^2
+cor(sal$yrs.since.phd, sal$yrs.since.phd^2); cor(sal$phd.c, sal$phd.c^2)
+```
+In the log model, the lowess trend of residuals against yrs.since.phd is flat for about 30 years and then curves down. The trend for yrs.service is mostly flat. Under the class rule, a curve in residuals against a predictor means linearity fails for that predictor. 
+
+So, we add a centred quadratic term (phd.c²), keeping phd.c in the model. A partial F test confirms it (F = 6.96, p = 0.009), while service² is not needed (p = 0.86).
+
+Centring cut the correlation between yrs.since.phd and its square from 0.96 to 0.27, removing most of the collinearity between the two terms without changing the fit.
+
+## 3.4 Interactions
+
+Interactions with sex:
+
+```{r sex-interactions}
+# each sex interaction asks whether the gender gap differs across a group, so all four are tested in m2:
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:rank, data = sal))
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:discipline, data = sal))
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:phd.c, data = sal))
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:serv.c, data = sal))
+table(sal$rank, sal$sex, sal$discipline)                          # women per cell
+```
+
+We tested whether the gender gap differs across groups by adding each sex interaction to the model with phd² and comparing them with partial F tests. None was significant: sex × rank (F = 0.43, p = 0.65), sex × discipline (F = 1.73, p = 0.19), sex × yrs.since.phd (p = 0.97) and sex × yrs.service (p = 0.99). With only 4–10 women in each rank × discipline group, these tests have little power. The results show no evidence that the gap varies, not proof that it is constant.
+
+Other interactions:
+
+```{r other-interactions}
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + phd.c:rank + serv.c:rank, data = sal))
+anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + rank:discipline, data = sal))
+```
+
+We also tested whether rank changes the effect of the other predictors, with partial F tests on m2. Allowing both experience slopes to differ by rank was not significant at the 5% level (F = 2.25 on 4 and 385 df, p = 0.063), nor was a different discipline premium at each rank (F = 1.85 on 2 and 387 df, p = 0.16). These interactions do not involve sex, so they do not change the gender comparison; they are kept in the full model of 3.6 and revisited in section 4.
+
+## 3.5 Overlap between yrs.since.phd and yrs.service
+
+```{r experience-overlap}
+cor(sal$yrs.since.phd, sal$yrs.service)
+library(car)
+vif(m1)
+```
+yrs.since.phd and yrs.service are highly correlated (r = 0.91), with VIFs of 7.5 and 5.9. These are below 10 but well above 1, which together with the opposite-signed slopes indicates moderate collinearity confined to the experience variables. We keep both because the research question names both. Collinearity inflates their standard errors without biasing the estimates, and it doesn't affect the sex coefficient (VIF 1.03). 
+
+## 3.6 Full model
+
+```{r full}
+full <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline +
+             sex:rank + sex:discipline + sex:phd.c + sex:serv.c +
+             phd.c:rank + serv.c:rank + rank:discipline, data = sal)
+summary(full)                                                     # 19 coefficients
+```
+
+## 4.1 Model selection
+
+We compare the candidate models on all 397 professors, the same data as the rest of the report, starting from the full model of 3.6.
+
+### Automatic search procedures
+
+```{r step-search}
+# [L18/L20] backward elimination from the full model, with AIC then BIC
+back.aic <- step(full, direction = "backward", trace = 0)
+back.bic <- step(full, direction = "backward", trace = 0, k = log(n))
+back.aic$anova                                                    # the path: which terms leave, and the AIC
+back.bic$anova                                                    # same with the BIC (the column says AIC)
+```
+
+```{r forward-stepwise}
+# [L18/L20] forward selection and stepwise regression, from the intercept alone, with AIC then BIC
+null <- lm(log(salary) ~ 1, data = sal)
+forw.aic <- step(null, scope = formula(full), direction = "forward", trace = 0)
+forw.bic <- step(null, scope = formula(full), direction = "forward", trace = 0, k = log(n))
+
+both.aic <- step(null, scope = formula(full), direction = "both", trace = 0)
+both.bic <- step(null, scope = formula(full), direction = "both", trace = 0, k = log(n))
+
+forw.aic$anova
+forw.bic$anova
+
+both.aic$anova
+both.bic$anova
+```
+
+Each table is the path of one search: backward (-) or forward (+), in order, with Resid. Dev the SSE of the model at each step.
+
+- **With the AIC, the three searches agree.** Backward elimination removes five interactions (serv.c × rank, sex × yrs.service, sex × rank, sex × yrs.since.phd and rank × discipline). Forward selection and stepwise regression build up the same model, and all three end at AIC = -1360.56 with phd.c, phd.c², serv.c, sex, rank, discipline, sex × discipline and phd.c × rank. Stepwise regression never removes a term on the way, so it ends where forward selection does.
+- **With the BIC, the three searches also agree, but keep only rank and discipline.** BIC charges ln 397 = 5.98 per parameter instead of 2, so it chooses a much smaller model.
+
+The BIC model cannot be used as it stands. It removes sex and both experience variables, but our question asks about sex *after accounting for* rank, both experience variables and discipline, so these five variables must stay in the model whatever the criteria say. The criteria rank models; they do not know the question. The AIC model keeps all five variables and every lower-order term, so it is one of our candidates.
+
+So we keep the five variables of the question in every model and compare a few candidates built from the search paths:
+
+- **A**: the five variables and phd.c², which is model m2 of 3.3.
+- **B**: A plus phd.c × rank. This is where forward selection stands one step before it stops.
+- **C**: B plus sex × discipline. This is where all three AIC searches stop.
+- **D**: C plus rank × discipline. This is where backward elimination stands one step before it stops.
+
+For comparison, we add the model without phd.c² and the full model of 3.6.
+
+### Criteria for the candidate models
+
+```{r candidates}
+# [L18] the candidate models, on all 397 professors
+m.none <- lm(log(salary) ~ phd.c + serv.c + sex + rank + discipline, data = sal)
+mA <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline, data = sal)
+mB <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + phd.c:rank, data = sal)
+mC <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + phd.c:rank +
+           sex:discipline, data = sal)
+mD <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + phd.c:rank +
+           sex:discipline + rank:discipline, data = sal)
+# [L18] adjusted R2, Cp, AIC, BIC and PRESS of each model, as on the slides (full = model with all the predictors)
+for (fit in list(m.none, mA, mB, mC, mD, full)) {
+  p <- length(coef(fit))
+  print(round(c(p     = p,
+                adjR2 = summary(fit)$adj.r.squared,
+                Cp    = sum(resid(fit)^2) / sigma(full)^2 - (n - 2 * p),
+                AIC   = extractAIC(fit)[2],
+                BIC   = extractAIC(fit, k = log(n))[2],
+                PRESS = sum((resid(fit) / (1 - hatvalues(fit)))^2)), 4))
+}
+```
+
+| Candidate | Optional terms added | p | Adjusted R² | Cp | AIC | BIC | PRESS | Best of the six by |
+| :--- | :--- | :---: | ---: | ---: | ---: | ---: | ---: | :--- |
+| — | none | 7 | 0.5175 | 17.31 | −1351.4 | −1323.5 | 13.196 | |
+| A | phd.c² | 8 | 0.5248 | 12.28 | −1356.5 | **−1324.6** | 13.106 | BIC |
+| B | phd.c², phd.c × rank | 10 | 0.5318 | 8.45 | −1360.4 | −1320.6 | 12.938 | |
+| C | phd.c², phd.c × rank, sex × discipline | 11 | 0.5331 | **8.39** | **−1360.6** | −1316.7 | 12.905 | Cp, AIC |
+| D | phd.c², phd.c × rank, sex × discipline, rank × discipline | 13 | **0.5332** | 10.31 | −1358.7 | −1306.9 | **12.895** | adjusted R², PRESS |
+| — | all eight (full model) | 19 | 0.5299 | 19.00 | −1350.2 | −1274.5 | 13.004 | |
+
+- Every criterion prefers A to the model without phd.c², which confirms 3.3. Without phd.c², Cp = 17.3, far above p = 7: a sign of bias ([L18]).
+- None of the candidates contains sex × rank, sex × yrs.since.phd or sex × yrs.service. All three AIC searches left them out, which agrees with 3.4.
+- The criteria disagree about phd.c × rank, sex × discipline and rank × discipline. The differences are small: adjusted R² goes from 0.525 to 0.533, and PRESS from 13.11 to 12.90 (about 1.6%).
+
+## 4.2 Final model
+
+**Choice: model A.** It is the model chosen by BIC and the simplest candidate, and the other criteria improve on it only slightly (PRESS 13.11 against 12.90, adjusted R² 0.525 against 0.533). It also answers the question with a single sex gap.
+
+- B, C and D add phd.c × rank, which lets salaries rise with experience at different rates in each rank. It improves the fit only slightly, and it is not needed to answer our question about the sex gap.
+- C and D also add sex × discipline, which would let the gap differ between theoretical and applied departments. This interaction was not significant in 3.4 (F = 1.73, p = 0.19), so we report one gap for both.
+
+Following lecture, we prefer the simpler model when the candidates are nearly as good.
+
+Model A answers the question best because it holds fixed every variable the question names (rank, both experience measures and discipline), uses log salary and a squared PhD term so its assumptions hold well enough for the sex test to be trusted, and is the simplest of the nearly equally good candidates. Its single sex coefficient is the gap between otherwise identical men and women, and we found no evidence that this gap differs across groups.
+
+Model A is exactly model m2 of 3.3, fitted on all 397 professors.
+
+```{r final}
+fA <- log(salary) ~ phd.c + I(phd.c^2) + yrs.service + sex + rank + discipline
+final <- lm(fA, data = sal)                                       # = m2, refitted on all the data
+summary(final)
+p <- length(coef(final))
+```
+
+### Limitations/Considerations
+
+- **One gap for both disciplines.** The model preferred by AIC and Cp (C) suggests that the gap may be larger in theoretical departments (-9.3%, p = 0.031) than in applied ones (-1.0%). The difference between the two is not significant (p = 0.15), but with only 4–10 women in each rank × discipline group, these data have little power to show it.
+- **No separate validation set.** For consistency with the rest of the report, model selection and the final fit both use all 397 professors. The chosen model was picked because it fits these data well, so its R² and p-values are somewhat optimistic, and how well it predicts new professors has not been checked on data kept aside, for instance with a training/validation split and the MSPE. PRESS, which predicts each professor from a fit that leaves that professor out, gives a partial check.
