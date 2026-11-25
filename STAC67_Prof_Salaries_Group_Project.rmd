@@ -365,3 +365,132 @@ p <- length(coef(final))
 
 - **One gap for both disciplines.** The model preferred by AIC and Cp (C) suggests that the gap may be larger in theoretical departments (-9.3%, p = 0.031) than in applied ones (-1.0%). The difference between the two is not significant (p = 0.15), but with only 4–10 women in each rank × discipline group, these data have little power to show it.
 - **No separate validation set.** For consistency with the rest of the report, model selection and the final fit both use all 397 professors. The chosen model was picked because it fits these data well, so its R² and p-values are somewhat optimistic, and how well it predicts new professors has not been checked on data kept aside, for instance with a training/validation split and the MSPE. PRESS, which predicts each professor from a fit that leaves that professor out, gives a partial check.
+
+## 5. Validation
+In this step, we will check the assumptions of our final model with the residual
+plots, looking for outlying and influential observations, multicollinearity
+and discuss the remedial measures taken.
+
+### 5.1 Residual Analysis
+Below, from left to right, is the residuals vs fitted and the Q-Q plot
+
+```{r, out.width="50%", echo=FALSE}
+
+# setup
+n <- nrow(sal); p <- length(coef(final))
+# table with one row per professor
+d <- data.frame(
+  obs    = seq_len(n),
+  fitted = fitted(final), # predicted values
+  e      = resid(final),  # raw residuals
+  r      = rstandard(final),    # internally studentized
+  t      = rstudent(final),     # externally (deleted) studentized
+  h      = hatvalues(final),
+  cook   = cooks.distance(final),
+  dffits = dffits(final)
+)
+
+# Residuals vs fitted (testing the linearity and constant variance)
+ggplot(d, aes(fitted, r)) + geom_point(size = 0.9) +
+  geom_hline(yintercept = 0, colour = "red") +
+  geom_hline(yintercept = c(-2, 2), linetype = "dashed") +
+  geom_smooth(method = "loess", se = FALSE, colour = "orange", formula = y ~ x) +
+  labs(x = "Fitted values", y = "Standardized residuals") + theme_bw()
+
+# Q-Q plot (normality)
+ggplot(d, aes(sample = r)) + stat_qq() + stat_qq_line(colour = "red") +
+  labs(x = "Theoretical", y = "Sample") + theme_bw()
+
+
+```
+
+**Linearity and constant variance:** The standardized residuals are centered
+around the zero across the range of fitted values, and the loess curve stays 
+close to zero except for a small downward bend at the far right. There are only
+a few observations here, this no strong evidence that the mean structure is misspecified.
+Overall, the linar form of the model looks adequate. The spread of residuals is not
+constant as it is noticeably larger for the higher fitted values compared to the lower and 
+almost all points +/- 2 are in the rgiht half of the plot. This is a mild
+violation of constant variance and means that standard errors and p-values should be read with 
+some caution
+
+\n
+
+**Normality:** In the Q-Q plot, the points follow the line closely in the middle, with the tails
+deviating from it. The errors this have somewhat heavier tails than a normal
+distribution, with a few large residuals. With 397 observations, these are mild problems
+as the estimates of the coefficients remain unbiased. 
+
+### 5.2 Observations
+
+#### 5.2.1 Outlying observations
+
+```{r, echo = FALSE}
+cut_t <- qt(1 - 0.05 / (2 * n), n - p - 1)
+top5 <- head(d[order(-abs(d$t)), c("obs", "t")], 5)
+knitr::kable(top5, digits = 2, row.names = FALSE,
+             col.names = c("Observation", "Studentized deleted residual"),
+             caption = "The five most extreme observations")
+```
+
+The Bonferroni cutoff is |t| > `r round(cut_t, 2)`, and the largest value in the data is
+`r round(max(abs(d$t)), 2)`. `r sum(abs(d$t) > cut_t)` observations exceed the cutoff, so
+there are no outliers in the response. These points are consistent with the 
+slightly heavy tails seen in the Q-Q plot.
+
+#### 5.2.2 High leverage (unusual predictors)
+
+```{r, out.width="60%", fig.align="center", echo = FALSE}
+h_cut <- 2 * p / n
+ggplot(d, aes(obs, h)) + geom_point(size = 0.9) +
+  geom_hline(yintercept = h_cut, colour = "red", linetype = "dashed") +
+  labs(x = "Observation", y = "Leverage") + theme_bw()
+```
+
+`r sum(d$h > h_cut)` of the `r n` observations have leverage above 2p/n = `r round(h_cut, 3)`
+(maximum `r round(max(d$h), 3)`). This means their combination of rank, discipline,
+experience and sex is less typical than most. Only a few points stand out clearly
+and the largest leverage is about 2.6 times the cutoff.
+High leverage by itself does not mean a point distorts the fit but only means
+it has potential to. Thus we must assess the influence next.
+
+#### 5.2.3 Influential observations: Cook's distance
+
+```{r, out.width="60%", fig.align="center", echo = FALSE}
+ggplot(d, aes(obs, cook)) + geom_col() +
+  geom_hline(yintercept = 4 / n, colour = "red", linetype = "dashed") +
+  labs(x = "Observation", y = "Cook's distance") + theme_bw()
+```
+
+`r sum(d$cook > 4 / n)` observations have Cook's distance above 4/n = `r round(4 / n, 4)`
+(maximum `r round(max(d$cook), 3)`). However, 4/n is only a screening rule and 
+the largest Cook's distance is 0.12, far less than 1. This is the level when a 
+single observation is considered to have a large effect on the fit. Most of the larger 
+values are in a small group of observations rather than spread out. No single professor dominates 
+the model, but the group of 20 together could affect the estimate of sex. Thus, we will
+examine this next.
+
+
+#### 5.2.4 Does the conclusion about sex change without the influential points?
+
+```{r, echo = FALSE}
+flag <- which(d$cook > 4 / n)
+final_drop <- update(final, data = sal[-flag, ])
+tab <- rbind(`All data` = summary(final)$coefficients["sexFemale", ],
+             `Influential points removed` = summary(final_drop)$coefficients["sexFemale", ])
+knitr::kable(tab, digits = 4)
+```
+
+With the `r length(flag)` flagged observations removed, the estimate for sex changes from
+`r round(tab[1, 1], 3)` (p = `r round(tab[1, 4], 3)`) to `r round(tab[2, 1], 3)`
+(p = `r round(tab[2, 4], 3)`). In both fits, the p-value is above 0.05. Thus, our conclusion
+is unchanged. We do not find a significant difference between men's and women's salaries 
+after accounting for rank, experience and discipline. The influential points
+were making the estimated gap look larger. So, without them, it is closer to zero and even less significant.
+This suggests that our conclusion is not driver by unsual observations. In conclusion,
+we keep all 397 observations  in the final model as there is no evidence that
+ay of them cause data errors.
+
+### 5.3 Mulicollinearity
+
+### 5.4 Remedial Measures Taken
