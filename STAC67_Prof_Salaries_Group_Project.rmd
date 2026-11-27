@@ -3,7 +3,7 @@ title: "C67 Report"
 output: html_document
 ---
 ### Question
-Are there significant differences in professors' salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?
+Is there an association between professors' sex and salary after accounting for academic rank, experience (years since obtaining a PhD and years of service), and discipline (theoretical/applied), considering the unequal representation of male and female professors in the dataset?
 
 ### Multilinear regression and its residuals
 ```{r pressure, echo=FALSE, out.width="50%"}
