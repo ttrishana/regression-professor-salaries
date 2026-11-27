@@ -3,10 +3,13 @@ title: "C67 Report"
 output: html_document
 ---
 ### Question
-Are there significant differences in professors' salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?
+
+Old Q: "Are there significant differences in professors’ salaries between men and women after accounting for academic rank, experience (years since obtaining a PhD, years of service), and discipline (theoretical/applied)?"
+
+Is there an association between professors' sex and salary after accounting for academic rank, experience (years since obtaining a PhD and years of service), and discipline (theoretical/applied), considering the unequal representation of male and female professors in the dataset?
 
 ### Multilinear regression and its residuals
-```{r pressure, echo=FALSE, out.width="50%"}
+```{r pressure, echo=FALSE, out.width="50%", results = 'hide', message=FALSE, warning=FALSE}
 library(ggplot2)
 prof_data <- read.csv("professors_salaries.csv")
 
@@ -69,7 +72,7 @@ We observe considerable variability, as the data points are widely spread around
 
 # Setup
 
-```{r data}
+```{r data, echo=FALSE, results = 'hide', message = FALSE}
 library(ggplot2)
 sal <- read.csv("professors_salaries.csv")
 # [L15/16] on qualitative predictors, convert qualitative variables to factors!
@@ -86,7 +89,7 @@ n <- nrow(sal)
 
 ## 3.1 Starting model
 
-```{r m0}
+```{r m0, echo=FALSE, results = 'hide', message = FALSE}
 #fitting all 5 predictors to the response variable salary
 m0 <- lm(salary ~ yrs.since.phd + yrs.service + sex + rank + discipline, data = sal)
 summary(m0)
@@ -101,10 +104,10 @@ summary(m0)
 
 ## 3.2 Transforming the response
 
-### Diagnostics of the starting model (residual plots and Shapiro-Wilk Test):
+### Diagnostics of the starting model (Residual plots & Shapiro-Wilk Test):
 
-```{r m0-diagnostics}
-# draw the standard residual plots and run the shapiro test
+```{r m0-diagnostics, echo=FALSE, results = 'hide', message = FALSE, fig.height=3, fig.width=6.5, fig.align="center"}
+# draw the standard residual plots and run the Shapiro test
 library(ggplot2)
 d0 <- data.frame(fitted = fitted(m0), resid = resid(m0), case = 1:n)
 d0$label <- paste0("$", format(sal$salary[d0$case], big.mark = ","))
@@ -123,7 +126,7 @@ shapiro.test(resid(m0))
 
 ### Brown-Forsythe test (split on the fitted values):
 
-```{r m0-bf}
+```{r m0-bf, echo=FALSE, results = 'hide', message = FALSE}
 # test for constant variance using the Brown-Forsythe test
 # split the residuals into two groups based on whether the fitted value is above or below the median
 # then compute the absolute deviations from the median of each group and run a two-sample t-test
@@ -141,17 +144,18 @@ t.test(d1, d2, var.equal = TRUE)
 
 **Conclusion**: the linearity assumption holds, but normality and equal variance fail. The pattern is right skew with spread growing as salary rises, which is a sign that the response needs a transformation. That justifies a Box-Cox step next. 
 
-Box-Cox (read lambda-hat and its 95% CI off the plot):
+Box-Cox (read $\hat{\lambda}$ and its 95% CI off the plot):
 
-```{r boxcox}
+```{r boxcox, echo=FALSE, results = 'hide', message = FALSE, fig.height=4.5, fig.align="center"}
 library(MASS)
 boxcox(m0)
 ```
+
 The Box-Cox plot shows that the 95% CI for lambda is roughly (-1.1, -0.5), which does not include 0 (log/ln) or 1 (no transformation), but does contain -1 (reciprocal). Because the skew and growing spread are the pattern for which ln Y is recommended, and because log coefficients give the sex effect as a percentage difference, we will compare ln Y with the reciprocal (λ = -1, inside the CI). 
 
 Comparing log(salary) and 1/salary:
 
-```{r compare-transformations}
+```{r compare-transformations, echo=FALSE, results = 'hide', message = FALSE}
 
 # refit transformed models and redo shapiro-wilk test
 m1 <- lm(log(salary) ~ yrs.since.phd + yrs.service + sex + rank + discipline, data = sal)
@@ -173,7 +177,7 @@ t.test(d1, d2, var.equal = TRUE)
 tapply(resid(m0), sal$rank, sd); tapply(resid(m1), sal$rank, sd); tapply(resid(mr), sal$rank, sd)
 ```
 
-```{r m1}
+```{r m1, echo=FALSE, results = 'hide'}
 summary(m1)
 ```
 
@@ -189,7 +193,7 @@ So, we adopt log(salary). It corrects the skew and makes the residuals roughly s
 
 ## 3.3 Polynomial terms
 
-```{r curvature-plots, fig.height = 4}
+```{r curvature-plots, fig.height = 4, echo=FALSE, results = 'hide', message = FALSE, fig.height=4, fig.width=6.5, fig.align="center"}
 d1 <- data.frame(phd = sal$yrs.since.phd, serv = sal$yrs.service, resid = resid(m1))
 ggplot(d1, aes(x = phd, y = resid)) +
   geom_point() +
@@ -204,7 +208,7 @@ ggplot(d1, aes(x = serv, y = resid)) +
 ```
 
 
-```{r polynomial-tests}
+```{r polynomial-tests, echo=FALSE, results = 'hide', message = FALSE}
 m2 <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline, data = sal)
 anova(m1, m2)                                                     # phd^2
 m2s <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + I(serv.c^2) + sex + rank + discipline, data = sal)
@@ -221,7 +225,7 @@ Centring cut the correlation between yrs.since.phd and its square from 0.96 to 0
 
 Interactions with sex:
 
-```{r sex-interactions}
+```{r sex-interactions, echo=FALSE, results = 'hide', message = FALSE}
 # each sex interaction asks whether the gender gap differs across a group, so all four are tested in m2:
 anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:rank, data = sal))
 anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + sex:discipline, data = sal))
@@ -234,7 +238,7 @@ We tested whether the gender gap differs across groups by adding each sex intera
 
 Other interactions:
 
-```{r other-interactions}
+```{r other-interactions, echo=FALSE, results = 'hide', message = FALSE}
 anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + phd.c:rank + serv.c:rank, data = sal))
 anova(m2, lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline + rank:discipline, data = sal))
 ```
@@ -243,7 +247,7 @@ We also tested whether rank changes the effect of the other predictors, with par
 
 ## 3.5 Overlap between yrs.since.phd and yrs.service
 
-```{r experience-overlap}
+```{r experience-overlap, echo=FALSE, results = 'hide', message=FALSE, warning=FALSE}
 cor(sal$yrs.since.phd, sal$yrs.service)
 library(car)
 vif(m1)
@@ -252,7 +256,7 @@ yrs.since.phd and yrs.service are highly correlated (r = 0.91), with VIFs of 7.5
 
 ## 3.6 Full model
 
-```{r full}
+```{r full, echo=FALSE, results = 'hide', message = FALSE}
 full <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline +
              sex:rank + sex:discipline + sex:phd.c + sex:serv.c +
              phd.c:rank + serv.c:rank + rank:discipline, data = sal)
@@ -265,7 +269,7 @@ We compare the candidate models on all 397 professors, the same data as the rest
 
 ### Automatic search procedures
 
-```{r step-search}
+```{r step-search, echo=FALSE, results = 'hide', message = FALSE}
 # [L18/L20] backward elimination from the full model, with AIC then BIC
 back.aic <- step(full, direction = "backward", trace = 0)
 back.bic <- step(full, direction = "backward", trace = 0, k = log(n))
@@ -273,7 +277,7 @@ back.aic$anova                                                    # the path: wh
 back.bic$anova                                                    # same with the BIC (the column says AIC)
 ```
 
-```{r forward-stepwise}
+```{r forward-stepwise, echo=FALSE, results = 'hide', message = FALSE}
 # [L18/L20] forward selection and stepwise regression, from the intercept alone, with AIC then BIC
 null <- lm(log(salary) ~ 1, data = sal)
 forw.aic <- step(null, scope = formula(full), direction = "forward", trace = 0)
@@ -307,7 +311,7 @@ For comparison, we add the model without phd.c² and the full model of 3.6.
 
 ### Criteria for the candidate models
 
-```{r candidates}
+```{r candidates, echo=FALSE, results = 'hide', message = FALSE}
 # [L18] the candidate models, on all 397 professors
 m.none <- lm(log(salary) ~ phd.c + serv.c + sex + rank + discipline, data = sal)
 mA <- lm(log(salary) ~ phd.c + I(phd.c^2) + serv.c + sex + rank + discipline, data = sal)
@@ -354,7 +358,7 @@ Model A answers the question best because it holds fixed every variable the ques
 
 Model A is exactly model m2 of 3.3, fitted on all 397 professors.
 
-```{r final}
+```{r final, echo=FALSE, results = 'hide', message = FALSE}
 fA <- log(salary) ~ phd.c + I(phd.c^2) + yrs.service + sex + rank + discipline
 final <- lm(fA, data = sal)                                       # = m2, refitted on all the data
 summary(final)
@@ -374,7 +378,7 @@ and discuss the remedial measures taken.
 ### 5.1 Residual Analysis
 Below, from left to right, is the residuals vs fitted and the Q-Q plot
 
-```{r, out.width="50%", echo=FALSE}
+```{r, out.width="50%", echo=FALSE, results = 'hide', message = FALSE}
 
 # setup
 n <- nrow(sal); p <- length(coef(final))
