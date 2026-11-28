@@ -412,9 +412,9 @@ ggplot(d, aes(sample = r)) + stat_qq() + stat_qq_line(colour = "red") +
 around the zero across the range of fitted values, and the loess curve stays 
 close to zero except for a small downward bend at the far right. There are only
 a few observations here, this no strong evidence that the mean structure is misspecified.
-Overall, the linar form of the model looks adequate. The spread of residuals is not
+Overall, the linear form of the model looks adequate. The spread of residuals is not
 constant as it is noticeably larger for the higher fitted values compared to the lower and 
-almost all points +/- 2 are in the rgiht half of the plot. This is a mild
+almost all points +/- 2 are in the right half of the plot. This is a mild
 violation of constant variance and means that standard errors and p-values should be read with 
 some caution
 
@@ -495,6 +495,54 @@ This suggests that our conclusion is not driver by unsual observations. In concl
 we keep all 397 observations  in the final model as there is no evidence that
 ay of them cause data errors.
 
-### 5.3 Mulicollinearity
+### 5.3 Multicollinearity
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warnings = FALSE}
+library(car)
+vif(mA)
+```
+
+
+Multicollinearity occurs when predictors have a strong correlation with each other. This makes it
+difficult to asses the individual effect of each predictor, as it makes the estimates unstable.
+What allows us to check for multicollinearity is the variance inflation factor (VIF) for each
+individual variable in Model A.
+
+| Predictor | GVIF | Df | $\text{GVIF}^{1/(2 \cdot \text{Df})}$ |
+| :--- | :---: | :---: | ---: |
+| phd.c | 8.59 | 1 | 2.93 |
+| phd.c$^2$ | 2.42 | 1 | 1.56 |
+| serv.c | 6.13 | 1 | 2.48 |
+| sex | 1.04 | 1 | 1.02 |
+| rank | 4.33 | 2 | 1.44 |
+| discipline | 1.06 | 1 | 1.03 |
+
+Quick Note: GVIF is the VIF exactly when Df = 1. <br>
+Within the lectures, it is mentioned that a VIF above 10 is when multicollinearity becomes a serious issue.
+
+In our data, the years since obtaining a PhD and years of service have a strong correlation ($r = 0.91$).
+However, in the model chosen (model A), both predictors stay under a VIF of 10 (8.59 and 6.13 respectively).
+All other comparable VIFs are well below a VIF of 10 (with an overall average of 3.93).
+
+Looking back to section 3.5, the VIFs for phd.c and serv.c (8.59 & 6.13) increased (compared to 7.5 & 5.9)
+when $phd.c^2$ was added to the model. 
+
 
 ### 5.4 Remedial Measures Taken
+
+Multiple remedial measures were taken:
+
+- **Transformation:** log(salary) fixes the skew and reduces the funnel shape that we saw initially.
+- **Polynomial Term:** Adding $phd.c^2$ to the model
+- **Centering Predictors:** Centering yrs.since.phd also helps to reduce multicollinearity, as $phd.c^2$ has a VIF = 2.42 (from Section 5.3)
+- **Influential Points:** 
+
+<br>
+
+- **Remaining Issues**
+  - Slight unequal variances across
+  - Tails in the Q-Q plot are slightly heavy
+  
+We could try to do a Weighted Linear Regression to
+
+

@@ -825,10 +825,10 @@ residuals are centered around the zero across the range of fitted
 values, and the loess curve stays close to zero except for a small
 downward bend at the far right. There are only a few observations here,
 this no strong evidence that the mean structure is misspecified.
-Overall, the linar form of the model looks adequate. The spread of
+Overall, the linear form of the model looks adequate. The spread of
 residuals is not constant as it is noticeably larger for the higher
 fitted values compared to the lower and almost all points +/- 2 are in
-the rgiht half of the plot. This is a mild violation of constant
+the right half of the plot. This is a mild violation of constant
 variance and means that standard errors and p-values should be read with
 some caution</p>
 <p><strong>Normality:</strong> In the Q-Q plot, the points follow the
@@ -948,11 +948,94 @@ all 397 observations in the final model as there is no evidence that ay
 of them cause data errors.</p>
 </div>
 </div>
-<div id="mulicollinearity" class="section level3">
-<h3>5.3 Mulicollinearity</h3>
+<div id="multicollinearity-1" class="section level3">
+<h3>5.3 Multicollinearity</h3>
+<p>Multicollinearity occurs when predictors have a strong correlation
+with each other. This makes it difficult to asses the individual effect
+of each predictor, as it makes the estimates unstable. What allows us to
+check for multicollinearity is the variance inflation factor (VIF) for
+each individual variable in Model A.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Predictor</th>
+<th align="center">GVIF</th>
+<th align="center">Df</th>
+<th align="right"><span class="math inline">\(\text{GVIF}^{1/(2 \cdot
+\text{Df})}\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">phd.c</td>
+<td align="center">8.59</td>
+<td align="center">1</td>
+<td align="right">2.93</td>
+</tr>
+<tr class="even">
+<td align="left">phd.c<span class="math inline">\(^2\)</span></td>
+<td align="center">2.42</td>
+<td align="center">1</td>
+<td align="right">1.56</td>
+</tr>
+<tr class="odd">
+<td align="left">serv.c</td>
+<td align="center">6.13</td>
+<td align="center">1</td>
+<td align="right">2.48</td>
+</tr>
+<tr class="even">
+<td align="left">sex</td>
+<td align="center">1.04</td>
+<td align="center">1</td>
+<td align="right">1.02</td>
+</tr>
+<tr class="odd">
+<td align="left">rank</td>
+<td align="center">4.33</td>
+<td align="center">2</td>
+<td align="right">1.44</td>
+</tr>
+<tr class="even">
+<td align="left">discipline</td>
+<td align="center">1.06</td>
+<td align="center">1</td>
+<td align="right">1.03</td>
+</tr>
+</tbody>
+</table>
+<p>Quick Note: GVIF is the VIF exactly when Df = 1. <br> Within the
+lectures, it is mentioned that a VIF above 10 is when multicollinearity
+becomes a serious issue.</p>
+<p>In our data, the years since obtaining a PhD and years of service
+have a strong correlation (<span class="math inline">\(r =
+0.91\)</span>). However, in the model chosen (model A), both predictors
+stay under a VIF of 10 (8.59 and 6.13 respectively). All other
+comparable VIFs are well below a VIF of 10 (with an overall average of
+3.93).</p>
+<p>Looking back to section 3.5, the VIFs for phd.c and serv.c (8.59
+&amp; 6.13) increased (compared to 7.5 &amp; 5.9) when <span class="math inline">\(phd.c^2\)</span> was added to the model.</p>
 </div>
 <div id="remedial-measures-taken" class="section level3">
 <h3>5.4 Remedial Measures Taken</h3>
+<p>Multiple Remedial Measures were taken:</p>
+<ul>
+<li><strong>Transformation:</strong> log(salary) fixes the skew and
+reduces the funnel shape that we saw initially.</li>
+<li><strong>Polynomial Term:</strong> Adding <span class="math inline">\(phd.c^2\)</span> to the model</li>
+<li><strong>Centering Points:</strong> Centering yrs.since.phd also
+helps to reduce multicollinearity, as <span class="math inline">\(phd.c^2\)</span> has a VIF = 2.42 (from S5.3)</li>
+<li><strong>Influential Points:</strong></li>
+</ul>
+<p><br></p>
+<ul>
+<li><strong>Remaining Issues</strong>
+<ul>
+<li>Slight unequal variances across</li>
+<li>Tails in the Q-Q plot are slightly heavy</li>
+</ul></li>
+</ul>
+<p>We could try to do a Weighted Linear Regression to</p>
 </div>
 </div>
 </div>
